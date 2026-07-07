@@ -1,0 +1,14 @@
+﻿{
+    "name":  "website-signal-scanner",
+    "version":  "0.1.0",
+    "private":  false,
+    "description":  "Local website audit scanner with technical checks, screenshot capture, and visual recommendations.",
+    "scripts":  {
+                    "start":  "node server.js",
+                    "check":  "node --check server.js \u0026\u0026 node --check app.js",
+                    "test":  "npm run check"
+                },
+    "dependencies":  {
+                         "playwright":  "^1.61.1"
+                     }
+}

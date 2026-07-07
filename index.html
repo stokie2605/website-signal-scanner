@@ -1,0 +1,110 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A local website audit scanner that checks pasted URLs for SEO basics, accessibility signals, mobile metadata, contact clarity, and lightweight performance indicators." />
+    <title>Website Signal Scanner</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="app-title">
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Website Signal Scanner</p>
+            <h1 id="app-title">Paste a URL. Get a practical website review.</h1>
+            <p class="hero-copy">A local scanner for spotting weak mobile metadata, missing SEO basics, stale pages, contact friction, accessibility gaps, and slow first responses.</p>
+          </div>
+          <div class="status-panel" aria-label="Report status">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="completion-label">Ready to scan</span>
+          </div>
+        </header>
+
+        <section class="scanner-panel" aria-labelledby="scanner-title">
+          <div class="scanner-copy">
+            <p class="eyebrow">Automatic Audit</p>
+            <h2 id="scanner-title">Scan one site or a short list.</h2>
+            <p>Enter one URL per line. The scanner fetches each homepage, checks the HTML, ranks opportunities, and suggests fixes you can turn into a clean report.</p>
+          </div>
+          <div class="scanner-controls">
+            <label for="scan-urls">Website URL(s)</label>
+            <textarea id="scan-urls" rows="4" placeholder="https://example.com&#10;https://another-site.co.uk"></textarea>
+            <div class="scanner-actions">
+              <button id="run-scan" type="button">Scan URL</button>
+              <span id="scan-status" class="scan-status">Local scanner idle</span>
+            </div>
+          </div>
+          <div id="scan-results" class="scan-results" aria-live="polite"></div>
+        </section>
+
+        <section class="grid-layout">
+          <form class="audit-form" id="audit-form">
+            <div class="form-section">
+              <div class="section-heading"><span>01</span><h2>Site Details</h2></div>
+              <label>Business or site name<input id="business-name" type="text" value="Example Local Business" /></label>
+              <label>Website URL<input id="website-url" type="url" value="https://example.com" /></label>
+              <label>Review context<textarea id="review-context" rows="3">Initial front-end review focused on mobile usability, contact clarity, accessibility basics, and local search structure.</textarea></label>
+            </div>
+
+            <div class="form-section">
+              <div class="section-heading"><span>02</span><h2>Automatic Scores</h2></div>
+              <p class="section-note">These are calculated from the latest scan. Use the notes section below for human judgement after checking the live site visually.</p>
+              <div class="score-grid auto-score-grid">
+                <div class="auto-score-card"><span>Mobile layout</span><output id="mobile-score-output">68</output><input class="score-input" id="mobile-score" type="hidden" value="68" /></div>
+                <div class="auto-score-card"><span>Performance</span><output id="performance-score-output">62</output><input class="score-input" id="performance-score" type="hidden" value="62" /></div>
+                <div class="auto-score-card"><span>Accessibility</span><output id="accessibility-score-output">58</output><input class="score-input" id="accessibility-score" type="hidden" value="58" /></div>
+                <div class="auto-score-card"><span>SEO structure</span><output id="seo-score-output">71</output><input class="score-input" id="seo-score" type="hidden" value="71" /></div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="section-heading"><span>03</span><h2>Scan Findings</h2></div>
+              <p class="section-note">These checks update automatically from the selected scan result.</p>
+              <div class="checklist scan-findings">
+                <div class="finding-row"><input id="has-title" type="checkbox" checked disabled /><span class="finding-state"></span><span>Clear page title and description</span></div>
+                <div class="finding-row"><input id="has-headings" type="checkbox" disabled /><span class="finding-state"></span><span>Logical heading structure</span></div>
+                <div class="finding-row"><input id="has-contact" type="checkbox" checked disabled /><span class="finding-state"></span><span>Contact route is easy to find</span></div>
+                <div class="finding-row"><input id="has-mobile" type="checkbox" disabled /><span class="finding-state"></span><span>Mobile viewport metadata present</span></div>
+                <div class="finding-row"><input id="has-alt" type="checkbox" disabled /><span class="finding-state"></span><span>Images have useful alt text</span></div>
+                <div class="finding-row"><input id="has-links" type="checkbox" checked disabled /><span class="finding-state"></span><span>Main links and buttons work</span></div>
+              </div>
+            </div>
+
+            <div class="form-section">
+              <div class="section-heading"><span>04</span><h2>Notes</h2></div>
+              <label>Main concern<textarea id="main-concern" rows="4">The mobile contact journey could be clearer, and accessibility basics need a pass before the site feels polished on smaller screens.</textarea></label>
+              <label>Recommended fixes<textarea id="recommended-fixes" rows="7">Add a visible call button near the top of the mobile layout.
+Check heading order and form labels.
+Compress large images and remove unused visual assets.
+Improve contrast on muted text.
+Add location/service wording to the page title and intro copy.</textarea></label>
+            </div>
+          </form>
+
+          <aside class="report-column" aria-labelledby="report-title">
+            <div class="report-actions">
+              <button id="copy-summary" type="button">Copy Summary</button>
+              <button id="download-report" type="button">Download HTML Report</button>
+              <button id="reset-report" type="button">Reset</button>
+            </div>
+            <article class="report-preview">
+              <p class="eyebrow">Generated Report</p>
+              <h2 id="report-title">Example Local Business</h2>
+              <p id="report-url" class="url-line">https://example.com</p>
+              <div id="score-summary" class="score-summary"></div>
+              <section><h3>Review Context</h3><p id="context-output"></p></section>
+              <section><h3>Checklist</h3><ul id="checklist-output"></ul></section>
+              <section><h3>Main Concern</h3><p id="concern-output"></p></section>
+              <section><h3>Recommended Fixes</h3><ol id="fixes-output"></ol></section>
+            </article>
+          </aside>
+        </section>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>
+
+
