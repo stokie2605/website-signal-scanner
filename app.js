@@ -1,4 +1,4 @@
-﻿const defaults = {
+const defaults = {
   businessName: "Example Local Business",
   websiteUrl: "https://example.com",
   reviewContext:

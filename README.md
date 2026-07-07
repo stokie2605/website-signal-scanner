@@ -1,4 +1,4 @@
-﻿# Website Signal Scanner
+# Website Signal Scanner
 
 A local website audit assistant that turns homepage URLs into practical technical and visual improvement notes.
 

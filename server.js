@@ -1,4 +1,4 @@
-﻿const crypto = require("node:crypto");
+const crypto = require("node:crypto");
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
