@@ -74,6 +74,102 @@ function visualRecommendations(signals) {
   return recs.slice(0, 6);
 }
 
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function extractInternalLinks(html, finalUrl, limit = 12) {
+  const base = new URL(finalUrl);
+  const hrefs = matches(html, /<a\b[^>]*>/gi)
+    .map((tag) => attr(tag, "href"))
+    .filter((href) => href && !href.startsWith("#") && !href.startsWith("mailto:") && !href.startsWith("tel:") && !href.startsWith("javascript:"));
+
+  return unique(hrefs.map((href) => {
+    try {
+      const url = new URL(href, base);
+      url.hash = "";
+      return url.origin === base.origin ? url.href : null;
+    } catch {
+      return null;
+    }
+  })).filter((href) => href !== base.href).slice(0, limit);
+}
+
+async function checkBrokenLinks(html, finalUrl) {
+  const links = extractInternalLinks(html, finalUrl);
+  const broken = [];
+  const checked = [];
+
+  for (const href of links) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      let response = await fetch(href, { method: "HEAD", redirect: "follow", signal: controller.signal, headers: { "User-Agent": "WebsiteHealthChecker/1.0 link audit" } });
+      if (response.status === 405 || response.status === 403) {
+        response = await fetch(href, { method: "GET", redirect: "follow", signal: controller.signal, headers: { "User-Agent": "WebsiteHealthChecker/1.0 link audit" } });
+      }
+      checked.push({ href, status: response.status, ok: response.status >= 200 && response.status < 400 });
+      if (response.status >= 400) broken.push({ href, status: response.status });
+    } catch (error) {
+      checked.push({ href, status: 0, ok: false, error: error.name === "AbortError" ? "timeout" : error.message });
+      broken.push({ href, status: 0 });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  return {
+    checkedCount: checked.length,
+    brokenCount: broken.length,
+    checked,
+    broken: broken.slice(0, 6),
+    recommendations: broken.length ? [`Fix or redirect ${broken.length} internal link${broken.length === 1 ? "" : "s"} returning errors.`] : [],
+  };
+}
+
+function buildLocalSeoAudit({ title, description, h1, visibleText, contactLinks, finalUrl }) {
+  const urlHost = (() => { try { return new URL(finalUrl).hostname; } catch { return ""; } })();
+  const locationWords = /(stoke|staffordshire|cheshire|alsager|crewe|sandbach|congleton|newcastle-under-lyme|near me|local)/i;
+  const serviceWords = /(service|repair|support|design|maintenance|installation|emergency|booking|quote|shop|studio|clinic|garage|foodbank|joinery|mechanic|tree|plumber|electrician)/i;
+  const hasPhone = /(?:\+44|0)\s?\d{2,5}[\s-]?\d{3,4}[\s-]?\d{3,4}/.test(visibleText) || /tel:/i.test(visibleText);
+  const hasEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(visibleText) || /mailto:/i.test(visibleText);
+  const hasSchema = /application\/ld\+json/i.test(visibleText);
+  const signals = [
+    { key: "location", label: "Mentions location/service area", passed: locationWords.test(`${title} ${description} ${h1} ${visibleText}`) },
+    { key: "service", label: "Mentions service/category", passed: serviceWords.test(`${title} ${description} ${h1} ${visibleText}`) },
+    { key: "contact", label: "Shows contact route", passed: contactLinks.length > 0 || hasPhone || hasEmail },
+    { key: "schema", label: "Has structured data hint", passed: hasSchema },
+    { key: "domain", label: "Uses readable domain", passed: Boolean(urlHost && !/[0-9a-f]{12,}/i.test(urlHost)) },
+  ];
+  const recommendations = [];
+  if (!signals[0].passed) recommendations.push("Add clear location or service-area wording for local search context.");
+  if (!signals[1].passed) recommendations.push("Make the primary service or site category obvious in the title, H1, and intro copy.");
+  if (!signals[2].passed) recommendations.push("Add a visible contact route such as phone, email, booking, or contact link.");
+  if (!signals[3].passed) recommendations.push("Consider adding structured data where appropriate, such as LocalBusiness, Organization, or WebSite schema.");
+  return { score: Math.round((signals.filter((s) => s.passed).length / signals.length) * 100), signals, recommendations };
+}
+
+function buildAccessibilityAudit({ h1Count, headings, images, missingAlt, html }) {
+  const formControls = matches(html, /<(input|select|textarea)\b[^>]*>/gi);
+  const labelledControls = formControls.filter((tag) => /aria-label=|aria-labelledby=|id=/i.test(tag));
+  const buttons = matches(html, /<button\b[^>]*>[\s\S]*?<\/button>|<a\b[^>]*>[\s\S]*?<\/a>/gi).slice(0, 300);
+  const unnamedActions = buttons.filter((tag) => !stripHtml(tag) && !/aria-label=|title=/i.test(tag));
+  const signals = [
+    { key: "h1", label: "Single clear H1", passed: h1Count === 1 },
+    { key: "headings", label: "Enough headings for scanning", passed: headings >= 3 },
+    { key: "alt", label: "Image alt coverage", passed: images.length === 0 || missingAlt.length / images.length <= 0.25 },
+    { key: "forms", label: "Form controls have label hooks", passed: formControls.length === 0 || labelledControls.length / formControls.length >= 0.75 },
+    { key: "actions", label: "Buttons/links have accessible names", passed: unnamedActions.length === 0 },
+  ];
+  const recommendations = [];
+  if (!signals[0].passed) recommendations.push("Use one clear H1 to improve page structure for screen readers and search engines.");
+  if (!signals[1].passed) recommendations.push("Add descriptive section headings so the page is easier to scan and navigate.");
+  if (!signals[2].passed) recommendations.push(`Add useful alt text to key images (${missingAlt.length} missing or empty).`);
+  if (!signals[3].passed) recommendations.push("Review form labels and ARIA label hooks for keyboard and screen-reader users.");
+  if (!signals[4].passed) recommendations.push("Give icon-only links/buttons accessible names with text or aria-label.");
+  return { score: Math.round((signals.filter((s) => s.passed).length / signals.length) * 100), signals, recommendations };
+}
 function scorePage({ url, finalUrl, html, elapsedMs, status }) {
   const title = textBetween(html, /<title[^>]*>([\s\S]*?)<\/title>/i);
   const descriptionTag = html.match(/<meta[^>]+name=["']description["'][^>]*>/i)?.[0] || "";
@@ -109,8 +205,11 @@ function scorePage({ url, finalUrl, html, elapsedMs, status }) {
     ["freshness", "No obviously stale copyright year", !oldCopyright, `Update stale copyright or footer date (${oldCopyright}).`],
   ].map(([key, label, passed, fix]) => ({ key, label, passed, fix }));
 
+  const localSeo = buildLocalSeoAudit({ title, description, h1, visibleText, contactLinks, finalUrl });
+  const accessibility = buildAccessibilityAudit({ h1Count, headings, images, missingAlt, html });
   const failed = checks.filter((c) => !c.passed);
-  const improvementScore = Math.round((failed.length / checks.length) * 100);
+  const modulePenalty = Math.round(((100 - localSeo.score) + (100 - accessibility.score)) / 20);
+  const improvementScore = Math.min(100, Math.round((failed.length / checks.length) * 100) + modulePenalty);
   const healthScore = 100 - improvementScore;
   return {
     url: url.href,
@@ -122,7 +221,9 @@ function scorePage({ url, finalUrl, html, elapsedMs, status }) {
     elapsedMs,
     counts: { headings, images: images.length, imagesMissingAlt: missingAlt.length, links: links.length, contactLinks: contactLinks.length },
     checks,
-    fixes: failed.map((c) => c.fix).slice(0, 8),
+    localSeo,
+    accessibility,
+    fixes: unique([...failed.map((c) => c.fix), ...localSeo.recommendations, ...accessibility.recommendations]).slice(0, 10),
     healthScore,
     improvementScore,
     opportunity: improvementScore >= 65 ? "High" : improvementScore >= 35 ? "Medium" : "Low",
@@ -218,13 +319,22 @@ async function auditOne(rawUrl) {
     const html = await response.text();
     const result = scorePage({ url: new URL(response.url), finalUrl: response.url, html, elapsedMs, status: response.status });
     result.visualAudit = await captureVisualAudit(result.finalUrl);
+    result.brokenLinks = await checkBrokenLinks(html, result.finalUrl);
     const visualFixes = result.visualAudit?.recommendations || [];
-    if (visualFixes.length) {
-      result.fixes = [...result.fixes, ...visualFixes].slice(0, 10);
-      result.improvementScore = Math.min(100, result.improvementScore + Math.min(24, visualFixes.length * 4));
+    const linkFixes = result.brokenLinks?.recommendations || [];
+    if (visualFixes.length || linkFixes.length) {
+      result.fixes = unique([...result.fixes, ...visualFixes, ...linkFixes]).slice(0, 12);
+      result.improvementScore = Math.min(100, result.improvementScore + Math.min(28, visualFixes.length * 4 + linkFixes.length * 6));
       result.healthScore = 100 - result.improvementScore;
       result.opportunity = result.improvementScore >= 65 ? "High" : result.improvementScore >= 35 ? "Medium" : "Low";
     }
+    result.modules = {
+      technical: result.healthScore,
+      localSeo: result.localSeo.score,
+      accessibility: result.accessibility.score,
+      brokenLinks: result.brokenLinks.checkedCount ? Math.max(0, 100 - result.brokenLinks.brokenCount * 20) : null,
+      visual: result.visualAudit?.available ? Math.max(0, 100 - (result.visualAudit.recommendations || []).length * 18) : null,
+    };
     return result;
   } catch (error) {
     return { url: url.href, error: error.name === "AbortError" ? "The site took too long to respond." : error.message };
@@ -257,3 +367,5 @@ http.createServer((req, res) => {
   if (req.method === "GET") return sendStatic(req, res);
   res.writeHead(405).end("Method not allowed");
 }).listen(port, () => console.log(`Website Health Checker running at http://localhost:${port}`));
+
+

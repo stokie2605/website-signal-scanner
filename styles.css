@@ -691,3 +691,86 @@ output,
     width: 100%;
   }
 }
+
+.comparison-output {
+  grid-column: 1 / -1;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.comparison-grid article {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  padding: 14px;
+}
+
+.comparison-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.comparison-grid strong {
+  display: block;
+  font-size: 0.96rem;
+  line-height: 1.25;
+  margin-bottom: 6px;
+}
+
+.comparison-grid small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+  .comparison-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .hero,
+  .scanner-panel,
+  .audit-form,
+  .report-actions {
+    display: none !important;
+  }
+
+  .app-shell {
+    width: 100%;
+    padding: 0;
+  }
+
+  .grid-layout {
+    display: block;
+  }
+
+  .report-column {
+    position: static;
+  }
+
+  .report-preview {
+    border: 0;
+    box-shadow: none;
+  }
+}

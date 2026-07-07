@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,7 +14,7 @@
           <div>
             <p class="eyebrow">Website Signal Scanner</p>
             <h1 id="app-title">Paste a URL. Get a practical website review.</h1>
-            <p class="hero-copy">A local scanner for spotting weak mobile metadata, missing SEO basics, stale pages, contact friction, accessibility gaps, and slow first responses.</p>
+            <p class="hero-copy">A local audit suite for turning pasted website URLs into ranked opportunities, screenshots, broken-link samples, local SEO checks, accessibility quick-pass notes, and exportable reports.</p>
           </div>
           <div class="status-panel" aria-label="Report status">
             <span class="status-dot" aria-hidden="true"></span>
@@ -26,17 +26,17 @@
           <div class="scanner-copy">
             <p class="eyebrow">Automatic Audit</p>
             <h2 id="scanner-title">Scan one site or a short list.</h2>
-            <p>Enter one URL per line. The scanner fetches each homepage, checks the HTML, ranks opportunities, and suggests fixes you can turn into a clean report.</p>
+            <p>Paste homepage URLs or messy search-result text. The scanner extracts URLs, checks each site, ranks opportunities, and builds report-ready notes.</p>
           </div>
           <div class="scanner-controls">
-            <label for="scan-urls">Website URL(s)</label>
-            <textarea id="scan-urls" rows="4" placeholder="https://example.com&#10;https://another-site.co.uk"></textarea>
+            <label for="scan-urls">Website URLs or pasted search results</label>
+            <textarea id="scan-urls" rows="4" placeholder="https://example.com&#10;https://another-site.co.uk&#10;or paste copied search-result text containing URLs"></textarea>
             <div class="scanner-actions">
               <button id="run-scan" type="button">Scan URL</button>
               <span id="scan-status" class="scan-status">Local scanner idle</span>
             </div>
           </div>
-          <div id="scan-results" class="scan-results" aria-live="polite"></div>
+          <div id="comparison-output" class="comparison-output" aria-live="polite"></div><div id="scan-results" class="scan-results" aria-live="polite"></div>
         </section>
 
         <section class="grid-layout">
@@ -86,7 +86,7 @@ Add location/service wording to the page title and intro copy.</textarea></label
           <aside class="report-column" aria-labelledby="report-title">
             <div class="report-actions">
               <button id="copy-summary" type="button">Copy Summary</button>
-              <button id="download-report" type="button">Download HTML Report</button>
+              <button id="download-report" type="button">Download HTML Report</button><button id="print-report" type="button">Print / Save PDF</button><button id="export-csv" type="button">Export CSV</button>
               <button id="reset-report" type="button">Reset</button>
             </div>
             <article class="report-preview">
@@ -106,5 +106,6 @@ Add location/service wording to the page title and intro copy.</textarea></label
     <script src="./app.js"></script>
   </body>
 </html>
+
 
 

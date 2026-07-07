@@ -1,6 +1,6 @@
-# Website Signal Scanner
+﻿# Website Signal Scanner
 
-A local website audit assistant that turns homepage URLs into practical technical and visual improvement notes.
+A local website audit assistant that turns homepage URLs into practical technical, SEO, accessibility, link-health, screenshot, and visual improvement notes.
 
 It is designed for quickly reviewing small business websites, portfolio targets, or public homepages before deciding whether a deeper manual audit is worth doing.
 
@@ -12,7 +12,7 @@ Website Signal Scanner helps answer one simple question:
 Which of these websites looks like it has clear improvement opportunities?
 ```
 
-It is useful when you have a short list of websites and want a fast first-pass review covering structure, contact clarity, local SEO basics, accessibility signals, mobile readiness, and visible design issues.
+It is useful when you have a short list of websites and want a fast first-pass review covering structure, contact clarity, local SEO basics, accessibility signals, mobile readiness, broken-link risk, and visible design issues.
 
 ## What It Checks
 
@@ -22,19 +22,34 @@ It is useful when you have a short list of websites and want a fast first-pass r
 - Mobile viewport metadata
 - Image alt text coverage
 - Contact links and call-to-action visibility
-- Local wording and service-area signals
+- Local wording and service/category signals
+- Structured data hints
 - Stale footer/copyright signals
 - Initial HTML response time
+- Sampled internal broken links
 - Desktop and mobile screenshot previews
 - Screenshot-based visual signals such as mobile overflow, weak above-the-fold copy, missing visual proof, small mobile text, and missing CTAs
 
+## Tool Modules
+
+| Module | What It Does |
+| --- | --- |
+| Website Signal Scanner | Scans pasted URLs and ranks improvement opportunities. |
+| Audit Report Builder | Creates a copyable/downloadable/printable audit report from the selected result. |
+| Competitor Comparator | Summarises best opportunity, fastest response, strongest local SEO signal, and broken-link risk across scanned sites. |
+| Homepage Screenshot Archive | Stores desktop/mobile screenshots locally for each scanned URL. |
+| Broken Link Checker | Samples internal links and flags links returning errors or timeouts. |
+| Local SEO Checker | Checks service/category wording, local wording, contact route, schema hints, and readable domain signals. |
+| Accessibility Quick Pass | Checks H1 structure, headings, image alt coverage, form label hooks, and accessible action names. |
+| Local Lead Finder Workflow | Extracts URLs from pasted search-result text or manually collected URL lists for fast candidate scanning. |
+
 ## How It Works
 
-1. Paste one homepage URL per line.
+1. Paste homepage URLs or copied search-result text.
 2. Click **Scan URL**.
-3. The tool fetches each homepage, captures desktop/mobile screenshots, and ranks the results.
+3. The tool extracts URLs, fetches each homepage, captures desktop/mobile screenshots, samples internal links, and ranks the results.
 4. The highest-opportunity result automatically populates an editable audit report.
-5. Copy the summary or download a static HTML report.
+5. Copy the summary, export CSV, print/save PDF, or download a static HTML report.
 
 ## Run Locally
 
@@ -66,13 +81,12 @@ This is a portfolio/practice tool, not a replacement for a full professional aud
 
 ## Possible Next Steps
 
-- Add Lighthouse performance/accessibility scoring
-- Add broken-link crawling
-- Add CSV import/export for URL lists
-- Add PDF report export
-- Add Google Places or search API discovery
+- Add deeper Lighthouse performance/accessibility scoring
+- Add full-site crawling with configurable depth
+- Add PDF generation server-side
+- Add saved scan history
+- Add Google Places or search API discovery with cost controls
 - Add AI-assisted copy rewrite suggestions
-- Add historical scan storage
 
 ## License
 
