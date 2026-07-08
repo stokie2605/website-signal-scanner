@@ -34,7 +34,7 @@
             <div class="safe-options" aria-label="Safe scan options">
               <label><input id="respect-robots" type="checkbox" checked /> Respect robots.txt</label>
               <label><input id="safe-mode" type="checkbox" checked /> Public homepage safe mode</label>
-              <span>Max 10 URLs per scan · polite delay enabled</span>
+              <span>Max 10 URLs per scan - polite delay enabled</span>
             </div>
             <div class="scanner-actions">
               <button id="run-scan" type="button">Scan URL</button>
@@ -44,8 +44,16 @@
           <div id="comparison-output" class="comparison-output" aria-live="polite"></div><div id="scan-results" class="scan-results" aria-live="polite"></div>
         </section>
 
-        <section class="grid-layout">
-          <form class="audit-form" id="audit-form">
+        <section class="grid-layout audit-workspace">
+          <div class="audit-dashboard">
+            <header class="dashboard-header">
+              <div>
+                <p class="eyebrow">Audit Workspace</p>
+                <h2>Review the signal, then shape the report.</h2>
+              </div>
+              <p>Scores and findings are generated from the scan. Notes stay editable so the final report can include human judgement.</p>
+            </header>
+            <form class="audit-form" id="audit-form">
             <div class="form-section">
               <div class="section-heading"><span>01</span><h2>Site Details</h2></div>
               <label>Business or site name<input id="business-name" type="text" value="Example Local Business" /></label>
@@ -87,6 +95,7 @@ Improve contrast on muted text.
 Add location/service wording to the page title and intro copy.</textarea></label>
             </div>
           </form>
+          </div>
 
           <aside class="report-column" aria-labelledby="report-title">
             <div class="report-actions">
@@ -95,9 +104,11 @@ Add location/service wording to the page title and intro copy.</textarea></label
               <button id="reset-report" type="button">Reset</button>
             </div>
             <article class="report-preview">
-              <p class="eyebrow">Generated Report</p>
-              <h2 id="report-title">Example Local Business</h2>
-              <p id="report-url" class="url-line">https://example.com</p>
+              <header class="report-preview-header">
+                <p class="eyebrow">Generated Report</p>
+                <h2 id="report-title">Example Local Business</h2>
+                <p id="report-url" class="url-line">https://example.com</p>
+              </header>
               <div id="score-summary" class="score-summary"></div>
               <section><h3>Review Context</h3><p id="context-output"></p></section>
               <section><h3>Checklist</h3><ul id="checklist-output"></ul></section>
