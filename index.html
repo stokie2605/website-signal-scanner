@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -31,6 +31,11 @@
           <div class="scanner-controls">
             <label for="scan-urls">Website URLs or pasted search results</label>
             <textarea id="scan-urls" rows="4" placeholder="https://example.com&#10;https://another-site.co.uk&#10;or paste copied search-result text containing URLs"></textarea>
+            <div class="safe-options" aria-label="Safe scan options">
+              <label><input id="respect-robots" type="checkbox" checked /> Respect robots.txt</label>
+              <label><input id="safe-mode" type="checkbox" checked /> Public homepage safe mode</label>
+              <span>Max 10 URLs per scan · polite delay enabled</span>
+            </div>
             <div class="scanner-actions">
               <button id="run-scan" type="button">Scan URL</button>
               <span id="scan-status" class="scan-status">Local scanner idle</span>
@@ -106,6 +111,3 @@ Add location/service wording to the page title and intro copy.</textarea></label
     <script src="./app.js"></script>
   </body>
 </html>
-
-
-

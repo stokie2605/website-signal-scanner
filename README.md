@@ -1,4 +1,4 @@
-﻿# Website Signal Scanner
+# Website Signal Scanner
 
 A local website audit assistant that turns homepage URLs into practical technical, SEO, accessibility, link-health, screenshot, and visual improvement notes.
 
@@ -75,6 +75,18 @@ https://another-local-company.com
 
 Avoid private or low-value pages such as tracking links, checkout pages, login pages, account pages, and admin routes.
 
+
+## Safe Use Defaults
+
+The scanner is designed to stay free and polite by default:
+
+- Respects `robots.txt` before scanning public pages or sampled internal links.
+- Public homepage safe mode skips login, account, admin, checkout, payment, order, tracking, and private-looking URLs.
+- Caps each batch at 10 URLs.
+- Adds a short delay between scans instead of hammering websites.
+- Runs locally with no paid APIs required.
+
+Use it for public homepages and first-pass portfolio-style audits. Do not use it to bypass access controls, scrape private areas, collect personal data, or republish site content. This is practical engineering guidance, not legal advice.
 ## Project Scope
 
 This is a portfolio/practice tool, not a replacement for a full professional audit. It gives a fast first-pass signal review and helps generate starting recommendations. A human should still review brand fit, content quality, conversion intent, and business context.

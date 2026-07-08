@@ -203,6 +203,35 @@ textarea:focus {
   min-height: 116px;
 }
 
+
+.safe-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.safe-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: #ffffff;
+  color: var(--text);
+  box-shadow: 0 8px 22px rgba(31, 42, 68, 0.06);
+}
+
+.safe-options input {
+  accent-color: var(--accent);
+}
+
+.safe-options span {
+  color: var(--muted);
+}
 .scanner-actions {
   display: flex;
   align-items: center;

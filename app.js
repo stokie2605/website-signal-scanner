@@ -1,4 +1,4 @@
-﻿const defaults = {
+const defaults = {
   businessName: "Example Local Business",
   websiteUrl: "https://example.com",
   reviewContext:
@@ -56,6 +56,8 @@ const scanner = {
   status: document.querySelector("#scan-status"),
   results: document.querySelector("#scan-results"),
   comparison: document.querySelector("#comparison-output"),
+  respectRobots: document.querySelector("#respect-robots"),
+  safeMode: document.querySelector("#safe-mode"),
 };
 
 const checkLabels = {
@@ -269,14 +271,19 @@ async function runScan() {
   }
 
   scanner.button.disabled = true;
-  scanner.status.textContent = `Scanning ${urls.length} URL${urls.length === 1 ? "" : "s"}...`;
+  const scanCount = Math.min(urls.length, 10);
+  scanner.status.textContent = `Scanning ${scanCount} URL${scanCount === 1 ? "" : "s"} with safe options enabled...`;
   scanner.results.innerHTML = `<div class="loading-line">Fetching pages and checking HTML signals...</div>`;
 
   try {
     const response = await fetch("/api/audit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls }),
+      body: JSON.stringify({
+        urls,
+        respectRobots: scanner.respectRobots.checked,
+        safeMode: scanner.safeMode.checked,
+      }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Scan failed.");
@@ -403,7 +410,3 @@ scanner.urls.addEventListener("keydown", (event) => {
 });
 
 setState(defaults);
-
-
-
-

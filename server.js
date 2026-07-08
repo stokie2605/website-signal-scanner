@@ -13,6 +13,79 @@ try {
 const port = Number(process.env.PORT || 4177);
 const root = __dirname;
 const screenshotRoot = path.join(root, "screenshots");
+const MAX_URLS_PER_SCAN = 10;
+const SCAN_DELAY_MS = 750;
+const ROBOTS_CACHE = new Map();
+const USER_AGENT = "WebsiteSignalScanner/1.0 (+https://github.com/stokie2605/website-signal-scanner)";
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isSensitivePath(url) {
+  return /\b(login|signin|sign-in|account|checkout|cart|basket|payment|admin|wp-admin|tracking|track|order|orders|portal|dashboard|private)\b/i.test(url.pathname);
+}
+
+function parseRobots(text, agent = "WebsiteSignalScanner") {
+  const groups = [];
+  let current = null;
+
+  for (const rawLine of String(text || "").split(/\r?\n/)) {
+    const line = rawLine.replace(/#.*/, "").trim();
+    if (!line) continue;
+    const [rawKey, ...rest] = line.split(":");
+    const key = rawKey.trim().toLowerCase();
+    const value = rest.join(":").trim();
+
+    if (key === "user-agent") {
+      current = { agents: [value.toLowerCase()], rules: [] };
+      groups.push(current);
+      continue;
+    }
+
+    if ((key === "allow" || key === "disallow") && current) {
+      current.rules.push({ type: key, path: value });
+    }
+  }
+
+  const lowerAgent = agent.toLowerCase();
+  const matching = groups.filter((group) => group.agents.some((name) => name === "*" || lowerAgent.includes(name)));
+  return matching.length ? matching : [];
+}
+
+function robotPathMatches(pathname, rulePath) {
+  if (!rulePath) return false;
+  const escaped = rulePath.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}`).test(pathname);
+}
+
+async function isRobotsAllowed(url) {
+  const origin = url.origin;
+  if (!ROBOTS_CACHE.has(origin)) {
+    try {
+      const response = await fetch(`${origin}/robots.txt`, {
+        redirect: "follow",
+        headers: { "User-Agent": USER_AGENT },
+        signal: AbortSignal.timeout(5000),
+      });
+      ROBOTS_CACHE.set(origin, response.ok ? await response.text() : "");
+    } catch {
+      ROBOTS_CACHE.set(origin, "");
+    }
+  }
+
+  const groups = parseRobots(ROBOTS_CACHE.get(origin));
+  if (!groups.length) return { allowed: true };
+  const rules = groups.flatMap((group) => group.rules)
+    .filter((rule) => robotPathMatches(url.pathname, rule.path))
+    .sort((a, b) => b.path.length - a.path.length);
+  const strongest = rules[0];
+  if (!strongest) return { allowed: true };
+  return {
+    allowed: strongest.type === "allow",
+    reason: strongest.type === "disallow" ? `Blocked by robots.txt rule: Disallow: ${strongest.path}` : undefined,
+  };
+}
 const types = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -102,12 +175,18 @@ async function checkBrokenLinks(html, finalUrl) {
   const checked = [];
 
   for (const href of links) {
+    const robots = await isRobotsAllowed(new URL(href));
+    if (!robots.allowed) {
+      checked.push({ href, status: 0, ok: null, skipped: true, error: robots.reason || "robots.txt" });
+      continue;
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      let response = await fetch(href, { method: "HEAD", redirect: "follow", signal: controller.signal, headers: { "User-Agent": "WebsiteHealthChecker/1.0 link audit" } });
+      let response = await fetch(href, { method: "HEAD", redirect: "follow", signal: controller.signal, headers: { "User-Agent": USER_AGENT } });
       if (response.status === 405 || response.status === 403) {
-        response = await fetch(href, { method: "GET", redirect: "follow", signal: controller.signal, headers: { "User-Agent": "WebsiteHealthChecker/1.0 link audit" } });
+        response = await fetch(href, { method: "GET", redirect: "follow", signal: controller.signal, headers: { "User-Agent": USER_AGENT } });
       }
       checked.push({ href, status: response.status, ok: response.status >= 200 && response.status < 400 });
       if (response.status >= 400) broken.push({ href, status: response.status });
@@ -187,7 +266,7 @@ function scorePage({ url, finalUrl, html, elapsedMs, status }) {
   });
   const visibleText = stripHtml(html).slice(0, 8000);
   const localSignals = /(stoke|alsager|crewe|sandbach|cheshire|stafford|newcastle-under-lyme|congleton|near me|local)/i.test(visibleText);
-  const oldCopyright = html.match(/(?:©|&copy;|copyright)[^0-9]*(20[0-2][0-4])/i)?.[1] || "";
+  const oldCopyright = html.match(/(?:\u00a9|&copy;|copyright)[^0-9]*(20[0-2][0-4])/i)?.[1] || "";
   const hasViewport = /<meta[^>]+name=["']viewport["'][^>]*>/i.test(html);
 
   const checks = [
@@ -305,14 +384,21 @@ async function captureVisualAudit(targetUrl) {
   }
 }
 
-async function auditOne(rawUrl) {
+async function auditOne(rawUrl, options = {}) {
   const url = normalizeUrl(rawUrl);
   if (!url) return { url: rawUrl, error: "Enter a valid URL." };
+  if (options.safeMode !== false && isSensitivePath(url)) {
+    return { url: url.href, skipped: true, error: "Skipped by safe mode. Use a public homepage rather than login, checkout, account, tracking, admin, or private pages." };
+  }
+  if (options.respectRobots !== false) {
+    const robots = await isRobotsAllowed(url);
+    if (!robots.allowed) return { url: url.href, skipped: true, error: robots.reason || "Skipped because robots.txt disallows this path." };
+  }
   const started = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
-    const response = await fetch(url, { redirect: "follow", signal: controller.signal, headers: { "User-Agent": "WebsiteHealthChecker/1.0 local audit tool", Accept: "text/html,application/xhtml+xml" } });
+    const response = await fetch(url, { redirect: "follow", signal: controller.signal, headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml" } });
     const elapsedMs = Date.now() - started;
     const type = response.headers.get("content-type") || "";
     if (!type.includes("text/html")) return { url: url.href, finalUrl: response.url, error: `Not an HTML page (${type || "unknown content type"}).` };
@@ -349,11 +435,18 @@ async function handleAudit(req, res) {
   req.on("end", async () => {
     try {
       const payload = JSON.parse(body || "{}");
+      const options = {
+        respectRobots: payload.respectRobots !== false,
+        safeMode: payload.safeMode !== false,
+      };
       const rawUrls = Array.isArray(payload.urls) ? payload.urls : String(payload.urls || payload.url || "").split(/\r?\n/);
-      const urls = rawUrls.map((x) => String(x).trim()).filter(Boolean).slice(0, 20);
+      const urls = rawUrls.map((x) => String(x).trim()).filter(Boolean).slice(0, MAX_URLS_PER_SCAN);
       if (!urls.length) return sendJson(res, 400, { error: "Add at least one URL to scan." });
       const results = [];
-      for (const url of urls) results.push(await auditOne(url));
+      for (const [index, url] of urls.entries()) {
+        if (index > 0) await sleep(SCAN_DELAY_MS);
+        results.push(await auditOne(url, options));
+      }
       results.sort((a, b) => (b.improvementScore || 0) - (a.improvementScore || 0));
       sendJson(res, 200, { results });
     } catch (error) {
@@ -367,5 +460,3 @@ http.createServer((req, res) => {
   if (req.method === "GET") return sendStatic(req, res);
   res.writeHead(405).end("Method not allowed");
 }).listen(port, () => console.log(`Website Health Checker running at http://localhost:${port}`));
-
-
