@@ -289,6 +289,8 @@ async function runScan() {
     if (!response.ok) throw new Error(data.error || "Scan failed.");
     renderScanResults(data.results || []);
     renderComparison(data.results || []);
+    saveToHistory(data.results || []);
+    renderHistory();
     const topResult = (data.results || []).find((result) => !result.error);
     if (topResult) setState(scanResultToState(topResult), topResult);
     scanner.status.textContent = `Scan complete: ${data.results?.length || 0} result${data.results?.length === 1 ? "" : "s"}. Report updated automatically.`;
@@ -307,61 +309,390 @@ function reportMarkup() {
   const moduleScores = result?.modules || {};
   const screenshots = result?.visualAudit?.available ? result.visualAudit.screenshots : null;
   const broken = result?.brokenLinks?.broken || [];
+  const checkedLinksCount = result?.brokenLinks?.checkedCount || 0;
+  const brokenLinksCount = result?.brokenLinks?.brokenCount || 0;
+
   const moduleCards = [
-    ["Mobile", state.scores.mobile],
-    ["Performance", state.scores.performance],
-    ["Accessibility", state.scores.accessibility],
-    ["SEO", state.scores.seo],
-    ["Local SEO", result?.localSeo?.score ?? "n/a"],
-    ["Broken Links", moduleScores.brokenLinks ?? "n/a"],
+    ["Mobile Layout", state.scores.mobile, "Calculated based on mobile viewport rendering and sizing."],
+    ["Performance", state.scores.performance, "Page HTML fetch speeds and response weight indicators."],
+    ["Accessibility", state.scores.accessibility, "Heading structure, image alt tags, and input labels check."],
+    ["Core SEO", state.scores.seo, "Metadata completeness, title keywords, and content headings."],
+    ["Local Search Signals", result?.localSeo?.score ?? "n/a", "Location references, contact links, and local intent phrases."],
+    ["Link Health", moduleScores.brokenLinks ?? "n/a", `Sampled checking of internal page-to-page links (${checkedLinksCount} scanned).`]
   ];
+
+  const getScoreColorClass = (score) => {
+    if (score === "n/a" || score === null) return "muted";
+    if (score >= 75) return "pass";
+    if (score >= 50) return "average";
+    return "warn";
+  };
 
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${safeText(state.businessName)} Website Signal Report</title>
+  <title>${safeText(state.businessName)} - Website Signal Report</title>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; color: #172033; background: #f4f6fb; }
-    main { width: min(980px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0; }
-    header { border-bottom: 4px solid #3657f5; margin-bottom: 24px; padding-bottom: 18px; }
-    h1 { margin: 0 0 8px; font-size: 42px; line-height: 1; }
-    h2 { margin-top: 30px; }
-    .scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .score, .shot { background: white; border: 1px solid #dbe2ee; border-radius: 12px; padding: 16px; }
-    .score strong { display: block; color: #3657f5; font-size: 28px; }
-    .shots { display: grid; grid-template-columns: 1fr 0.38fr; gap: 14px; }
-    img { display: block; width: 100%; border-radius: 10px; border: 1px solid #dbe2ee; }
-    li { margin-bottom: 8px; line-height: 1.5; }
-    @media (max-width: 680px) { .scores, .shots { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+    
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --border: #e2e8f0;
+      --primary: #3657f5;
+      --primary-soft: #eff6ff;
+      --emerald: #059669;
+      --emerald-soft: #ecfdf5;
+      --amber: #d97706;
+      --amber-soft: #fffbeb;
+      --red: #dc2626;
+      --red-soft: #fef2f2;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    h1, h2, h3, h4 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 700;
+      margin-top: 0;
+      letter-spacing: -0.02em;
+    }
+
+    main {
+      width: min(1000px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 50px 0;
+    }
+
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 6px solid var(--primary);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 8px 24px rgba(24,32,51,0.02);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .header-main h1 { font-size: 32px; margin-bottom: 6px; color: var(--text); }
+    .header-main .url { color: var(--primary); font-weight: 600; text-decoration: none; word-break: break-all; }
+    .header-meta { text-align: right; font-size: 0.9rem; color: var(--muted); }
+    .header-meta strong { color: var(--text); display: block; font-size: 1.1rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 8px 24px rgba(24,32,51,0.02);
+      page-break-inside: avoid;
+    }
+
+    .card h2 {
+      font-size: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scores-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .score-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      page-break-inside: avoid;
+    }
+
+    .score-badge {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      flex-shrink: 0;
+    }
+
+    .score-badge.pass { background: var(--emerald-soft); color: var(--emerald); border: 1px solid rgba(5,150,105,0.15); }
+    .score-badge.average { background: var(--amber-soft); color: var(--amber); border: 1px solid rgba(217,119,6,0.15); }
+    .score-badge.warn { background: var(--red-soft); color: var(--red); border: 1px solid rgba(220,38,38,0.15); }
+    .score-badge.muted { background: #f1f5f9; color: #64748b; border: 1px solid var(--border); }
+
+    .score-info { min-width: 0; }
+    .score-info h3 { font-size: 15px; margin-bottom: 4px; color: var(--text); }
+    .score-info p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .pill.pass { background: var(--emerald-soft); color: var(--emerald); }
+    .pill.warn { background: var(--amber-soft); color: var(--amber); }
+
+    .checklist-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+    }
+
+    .checklist-item.pass { border-left: 4px solid var(--emerald); }
+    .checklist-item.warn { border-left: 4px solid var(--amber); }
+
+    .checklist-item span.text { font-size: 14px; font-weight: 500; }
+
+    .concern-text {
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text);
+      border-left: 4px solid var(--primary);
+      padding-left: 16px;
+      margin: 0;
+    }
+
+    .fixes-list {
+      padding-left: 20px;
+      margin: 0;
+    }
+    
+    .fixes-list li {
+      margin-bottom: 12px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    
+    .fixes-list li::marker {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .screenshots-container {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 20px;
+    }
+    
+    .screenshot-frame {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #f1f5f9;
+      padding: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+    
+    .screenshot-frame img {
+      width: 100%;
+      display: block;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      object-fit: cover;
+      object-position: top;
+    }
+    
+    .screenshot-frame.desktop img { height: 350px; }
+    .screenshot-frame.mobile img { height: 350px; }
+
+    .broken-links-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    
+    .broken-links-table th, .broken-links-table td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+    }
+    
+    .broken-links-table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+
+    .broken-links-table tr.error-row td {
+      background: var(--red-soft);
+    }
+
+    @media (max-width: 768px) {
+      header { flex-direction: column; text-align: left; padding: 20px; }
+      .header-meta { text-align: left; }
+      .screenshots-container { grid-template-columns: 1fr; }
+      .checklist-list { grid-template-columns: 1fr; }
+      main { padding: 20px 0; }
+    }
+
+    @media print {
+      body { background: white; color: black; font-size: 12pt; }
+      main { width: 100%; padding: 0; }
+      header { border-top: 4px solid var(--primary); border-radius: 0; box-shadow: none; border-color: #000; padding: 15px; margin-bottom: 20px; }
+      .card { border-radius: 0; box-shadow: none; border-color: #ccc; padding: 15px; margin-bottom: 20px; page-break-inside: avoid; }
+      .score-badge { border-color: #000 !important; color: black !important; background: transparent !important; }
+      .score-badge.pass, .score-badge.average, .score-badge.warn { border: 1px solid #000 !important; }
+      .pill { border: 1px solid #000 !important; color: black !important; background: transparent !important; }
+      .checklist-item { border-left-color: #000 !important; background: transparent !important; }
+      .screenshot-frame { background: transparent !important; box-shadow: none !important; }
+      .screenshot-frame.desktop img, .screenshot-frame.mobile img { height: 260px; }
+      .page-break { page-break-before: always; }
+      a { text-decoration: underline; color: black; }
+    }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <p>Website Signal Report</p>
-      <h1>${safeText(state.businessName)}</h1>
-      <p>${safeText(state.websiteUrl)}</p>
-      <p>${new Date().toLocaleDateString()}</p>
+      <div class="header-main">
+        <p style="margin:0 0 4px; font-weight:700; color:var(--muted); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em;">Website Technical Signal Audit</p>
+        <h1>${safeText(state.businessName)}</h1>
+        <a href="${safeText(state.websiteUrl)}" target="_blank" rel="noopener" class="url">${safeText(state.websiteUrl)}</a>
+      </div>
+      <div class="header-meta">
+        <strong>Technical Health Audit</strong>
+        <span>Generated: ${new Date().toLocaleDateString()}</span>
+      </div>
     </header>
-    <section class="scores">
-      ${moduleCards.map(([label, value]) => `<div class="score"><strong>${safeText(value)}</strong>${safeText(label)}</div>`).join("")}
-    </section>
-    ${screenshots ? `<h2>Screenshot Evidence</h2><section class="shots"><div class="shot"><img src="${safeText(screenshots.desktop)}" alt="Desktop screenshot"></div><div class="shot"><img src="${safeText(screenshots.mobile)}" alt="Mobile screenshot"></div></section>` : ""}
-    <h2>Review Context</h2>
-    <p>${safeText(state.reviewContext)}</p>
-    <h2>Scan Findings</h2>
-    <ul>${Object.entries(state.checks).map(([key, passed]) => `<li>${passed ? "Pass" : "Needs review"}: ${safeText(checkLabels[key])}</li>`).join("")}</ul>
-    <h2>Main Concern</h2>
-    <p>${safeText(state.mainConcern)}</p>
-    <h2>Recommended Fixes</h2>
-    <ol>${fixes.map((fix) => `<li>${safeText(fix)}</li>`).join("")}</ol>
-    ${broken.length ? `<h2>Sample Broken Links</h2><ul>${broken.map((item) => `<li>${safeText(item.href)} (${safeText(item.status)})</li>`).join("")}</ul>` : ""}
+
+    <div class="card">
+      <h2>Technical Performance & Accessibility Overview</h2>
+      <div class="scores-grid">
+        ${moduleCards.map(([label, score, desc]) => `
+          <div class="score-card">
+            <div class="score-badge ${getScoreColorClass(score)}">${safeText(score)}</div>
+            <div class="score-info">
+              <h3>${safeText(label)}</h3>
+              <p>${safeText(desc)}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Review Context & Parameters</h2>
+      <p class="concern-text" style="border-left-color: var(--muted); font-style: italic; color: var(--muted);">${safeText(state.reviewContext)}</p>
+    </div>
+
+    <div class="card page-break">
+      <h2>Automated Signal Checks</h2>
+      <div class="checklist-list">
+        ${Object.entries(state.checks).map(([key, passed]) => `
+          <div class="checklist-item ${passed ? "pass" : "warn"}">
+            <span class="pill ${passed ? "pass" : "warn"}">${passed ? "Pass" : "Review"}</span>
+            <span class="text">${safeText(checkLabels[key])}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Primary Findings & Concerns</h2>
+      <p class="concern-text">${safeText(state.mainConcern)}</p>
+    </div>
+
+    <div class="card page-break">
+      <h2>Action Plan: Priority Technical Recommendations</h2>
+      <ol class="fixes-list">
+        ${fixes.map((fix) => `<li>${safeText(fix)}</li>`).join("")}
+      </ol>
+    </div>
+
+    ${broken.length ? `
+    <div class="card">
+      <h2>Broken Link Validation</h2>
+      <p>The scanner sampled links internally and flagged the following responses that returned dead or timeout signals (${brokenLinksCount} errors found):</p>
+      <table class="broken-links-table">
+        <thead>
+          <tr>
+            <th>Link Target Path</th>
+            <th>HTTP Status / Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${broken.map((item) => `
+            <tr class="error-row">
+              <td style="word-break: break-all;"><a href="${safeText(item.href)}" target="_blank">${safeText(item.href)}</a></td>
+              <td><strong>${item.status === 0 ? "Timeout / DNS Error" : "HTTP Status " + safeText(item.status)}</strong></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+    ` : ""}
+
+    ${screenshots ? `
+    <div class="card page-break">
+      <h2>Visual Layout Evidence</h2>
+      <p style="margin:0 0 16px; color:var(--muted); font-size:14px;">The scanner captured visual viewports at standard resolutions to audit mobile-responsiveness, CTA visibility, and above-the-fold sizing.</p>
+      <div class="screenshots-container">
+        <div class="screenshot-frame desktop">
+          <div style="font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px;">Desktop Viewport (1365px width)</div>
+          <img src="${safeText(screenshots.desktop)}" alt="Desktop Viewport Audit Screenshot">
+        </div>
+        <div class="screenshot-frame mobile">
+          <div style="font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px;">Mobile Viewport (390px width)</div>
+          <img src="${safeText(screenshots.mobile)}" alt="Mobile Viewport Audit Screenshot">
+        </div>
+      </div>
+    </div>
+    ` : ""}
   </main>
 </body>
 </html>`;
 }
+
 function copySummary() {
   const state = getState();
   const summary = `${state.businessName} website health check\n${state.websiteUrl}\n\nMain concern:\n${state.mainConcern}\n\nRecommended fixes:\n${state.recommendedFixes}`;
@@ -377,10 +708,64 @@ function downloadReport() {
   URL.revokeObjectURL(link.href);
 }
 
-function loadSavedState() {
-  const saved = localStorage.getItem("website-health-checker");
-  if (!saved) return defaults;
-  try { return { ...defaults, ...JSON.parse(saved) }; } catch { return defaults; }
+function loadHistory() {
+  try {
+    const saved = localStorage.getItem("website-signal-scanner-history");
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToHistory(results) {
+  if (!results || !results.length) return;
+  let history = loadHistory();
+  for (const result of results) {
+    if (result.error) continue;
+    history = history.filter((item) => item.url !== result.url && item.finalUrl !== result.finalUrl);
+    history.unshift(result);
+  }
+  localStorage.setItem("website-signal-scanner-history", JSON.stringify(history.slice(0, 30)));
+}
+
+function renderHistory() {
+  const list = document.querySelector("#scan-history-list");
+  const clearBtn = document.querySelector("#clear-history");
+  if (!list) return;
+
+  const history = loadHistory();
+  if (!history.length) {
+    list.innerHTML = `<li class="empty-history">No past scans saved.</li>`;
+    if (clearBtn) clearBtn.style.display = "none";
+    return;
+  }
+
+  if (clearBtn) clearBtn.style.display = "block";
+  list.innerHTML = history.map((result, index) => {
+    const title = result.title && result.title !== "No title found" ? result.title : domainName(result.finalUrl || result.url);
+    const date = new Date(result.scannedAt || Date.now()).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `<li class="scan-history-item" data-index="${index}">
+      <div class="scan-history-info">
+        <span class="scan-history-title">${safeText(title)}</span>
+        <span class="scan-history-meta">Need: ${result.improvementScore} • ${date}</span>
+      </div>
+      <div class="scan-history-item-actions">
+        <button class="scan-history-delete" type="button" data-url="${safeText(result.url)}" title="Delete from history">×</button>
+      </div>
+    </li>`;
+  }).join("");
+}
+
+function deleteHistoryItem(url) {
+  let history = loadHistory();
+  history = history.filter((item) => item.url !== url);
+  localStorage.setItem("website-signal-scanner-history", JSON.stringify(history));
+  renderHistory();
+}
+
+function clearHistory() {
+  localStorage.removeItem("website-signal-scanner-history");
+  renderHistory();
 }
 
 Object.values(fields.scores).forEach((field) => field.addEventListener("input", render));
@@ -409,4 +794,39 @@ scanner.urls.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") runScan();
 });
 
+// Event delegation for history items selection and deletion
+const historyList = document.querySelector("#scan-history-list");
+if (historyList) {
+  historyList.addEventListener("click", (event) => {
+    const deleteBtn = event.target.closest(".scan-history-delete");
+    if (deleteBtn) {
+      event.stopPropagation();
+      const url = deleteBtn.dataset.url;
+      deleteHistoryItem(url);
+      return;
+    }
+
+    const item = event.target.closest(".scan-history-item");
+    if (item) {
+      const history = loadHistory();
+      const result = history[Number(item.dataset.index)];
+      if (result) {
+        latestScanResults = [result];
+        renderScanResults([result]);
+        renderComparison([result]);
+        setState(scanResultToState(result), result);
+        scanner.status.textContent = `Loaded saved scan for ${domainName(result.finalUrl || result.url)}`;
+      }
+    }
+  });
+}
+
+const clearHistoryBtn = document.querySelector("#clear-history");
+if (clearHistoryBtn) {
+  clearHistoryBtn.addEventListener("click", clearHistory);
+}
+
+// Initial state setup and history load
 setState(defaults);
+renderHistory();
+

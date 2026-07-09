@@ -27,6 +27,13 @@
             <p class="eyebrow">Automatic Audit</p>
             <h2 id="scanner-title">Scan one site or a short list.</h2>
             <p>Paste homepage URLs or messy search-result text. The scanner extracts URLs, checks each site, ranks opportunities, and builds report-ready notes.</p>
+            <div class="scan-history-container" id="scan-history-container">
+              <h3>Saved Scans</h3>
+              <ul id="scan-history-list" class="scan-history-list">
+                <li class="empty-history">No past scans saved.</li>
+              </ul>
+              <button id="clear-history" class="clear-history" type="button" style="display:none;">Clear Scan History</button>
+            </div>
           </div>
           <div class="scanner-controls">
             <label for="scan-urls">Website URLs or pasted search results</label>

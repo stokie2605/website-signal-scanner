@@ -856,3 +856,109 @@ output,
     box-shadow: none;
   }
 }
+
+/* Scan History Container Styles */
+.scan-history-container {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.scan-history-container h3 {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.scan-history-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.scan-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+.scan-history-item:hover {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.scan-history-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.scan-history-title {
+  font-weight: 800;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scan-history-meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scan-history-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.scan-history-delete {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  min-height: auto;
+  padding: 4px;
+  box-shadow: none;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.scan-history-delete:hover {
+  color: var(--red);
+  background: transparent;
+}
+
+.empty-history {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  padding: 6px 0;
+}
+
+.clear-history {
+  width: 100%;
+  font-size: 0.78rem;
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
