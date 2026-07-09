@@ -774,7 +774,36 @@ Object.values(fields.checks).forEach((field) => field.addEventListener("change",
 
 document.querySelector("#copy-summary").addEventListener("click", copySummary);
 document.querySelector("#download-report").addEventListener("click", downloadReport);
-document.querySelector("#print-report").addEventListener("click", () => window.print());
+document.querySelector("#print-report").addEventListener("click", async () => {
+  const button = document.querySelector("#print-report");
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Generating PDF...";
+
+  try {
+    const state = getState();
+    const response = await fetch("/api/export-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    });
+
+    if (!response.ok) throw new Error("Backend PDF generation failed");
+
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `website-audit-${state.businessName.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  } catch (error) {
+    console.error("PDF API error, falling back to window.print():", error);
+    window.print();
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+});
 document.querySelector("#export-csv").addEventListener("click", exportCsv);
 document.querySelector("#reset-report").addEventListener("click", () => {
   scanner.urls.value = "";

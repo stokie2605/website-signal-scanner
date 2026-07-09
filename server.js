@@ -429,6 +429,117 @@ async function auditOne(rawUrl, options = {}) {
   }
 }
 
+async function generatePdfReport(state) {
+  if (!chromium) throw new Error("Playwright is not available.");
+  let browser = null;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+
+    const htmlContent = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Website Health Audit - ${state.businessName}</title>
+  <style>
+    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #1f2937; padding: 30px; line-height: 1.5; background: #ffffff; }
+    .header { border-bottom: 3px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+    .title { font-size: 26px; font-weight: 800; color: #111827; margin: 0; }
+    .url { font-size: 15px; color: #2563eb; text-decoration: none; margin-top: 6px; display: inline-block; word-break: break-all; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; font-size: 14px; color: #4b5563; }
+    .score-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 35px; }
+    .score-box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; text-align: center; background-color: #f9fafb; }
+    .score-value { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+    .score-value.pass { color: #10b981; }
+    .score-value.warn { color: #f59e0b; }
+    .score-value.fail { color: #ef4444; }
+    .score-label { font-size: 11px; text-transform: uppercase; color: #6b7280; font-weight: 700; letter-spacing: 0.05em; }
+    .section { margin-bottom: 30px; }
+    .section-title { font-size: 18px; font-weight: 800; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; color: #1e3a8a; }
+    .bullet-list { padding-left: 20px; margin: 0; }
+    .bullet-list li { margin-bottom: 8px; color: #374151; }
+    p { color: #374151; margin: 0 0 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">Website Performance & Accessibility Audit</div>
+    <a href="${state.websiteUrl}" class="url" target="_blank">${state.websiteUrl}</a>
+    <div class="meta-grid">
+      <div><strong>Client/Business Name:</strong> ${state.businessName}</div>
+      <div><strong>Date of Audit:</strong> ${new Date().toLocaleDateString('en-GB')}</div>
+    </div>
+  </div>
+
+  <div class="score-grid">
+    <div class="score-box">
+      <div class="score-value ${state.scores.mobile >= 75 ? 'pass' : (state.scores.mobile >= 55 ? 'warn' : 'fail')}">${state.scores.mobile}/100</div>
+      <div class="score-label">Mobile Friendly</div>
+    </div>
+    <div class="score-box">
+      <div class="score-value ${state.scores.performance >= 75 ? 'pass' : (state.scores.performance >= 55 ? 'warn' : 'fail')}">${state.scores.performance}/100</div>
+      <div class="score-label">Performance</div>
+    </div>
+    <div class="score-box">
+      <div class="score-value ${state.scores.accessibility >= 75 ? 'pass' : (state.scores.accessibility >= 55 ? 'warn' : 'fail')}">${state.scores.accessibility}/100</div>
+      <div class="score-label">Accessibility</div>
+    </div>
+    <div class="score-box">
+      <div class="score-value ${state.scores.seo >= 75 ? 'pass' : (state.scores.seo >= 55 ? 'warn' : 'fail')}">${state.scores.seo}/100</div>
+      <div class="score-label">Local SEO</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Audit Context & Scope</div>
+    <p>${state.reviewContext || 'Initial assessment of public homepage usability, search presence, and performance optimization.'}</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Primary Concerns & Findings</div>
+    <p>${state.mainConcern || 'No critical issues found.'}</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Recommended Action Plan</div>
+    <ul class="bullet-list">
+      ${state.recommendedFixes.split('\n').map(x => x.trim()).filter(Boolean).map(fix => `<li>${fix}</li>`).join('')}
+    </ul>
+  </div>
+</body>
+</html>`;
+
+    await page.setContent(htmlContent);
+    const pdf = await page.pdf({
+      format: 'A4',
+      margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' },
+      printBackground: true
+    });
+    return pdf;
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+async function handleExportPdf(req, res) {
+  let body = "";
+  req.on("data", (chunk) => { body += chunk; if (body.length > 500000) req.destroy(); });
+  req.on("end", async () => {
+    try {
+      const state = JSON.parse(body || "{}");
+      if (!state.businessName) return sendJson(res, 400, { error: "Missing report state data." });
+      const pdfBuffer = await generatePdfReport(state);
+      res.writeHead(200, {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="website-audit-${state.businessName.replace(/[^a-z0-9]/gi, '_')}.pdf"`
+      });
+      res.end(pdfBuffer);
+    } catch (error) {
+      sendJson(res, 500, { error: error.message });
+    }
+  });
+}
+
 async function handleAudit(req, res) {
   let body = "";
   req.on("data", (chunk) => { body += chunk; if (body.length > 100000) req.destroy(); });
@@ -457,6 +568,7 @@ async function handleAudit(req, res) {
 
 http.createServer((req, res) => {
   if (req.method === "POST" && req.url === "/api/audit") return handleAudit(req, res);
+  if (req.method === "POST" && req.url === "/api/export-pdf") return handleExportPdf(req, res);
   if (req.method === "GET") return sendStatic(req, res);
   res.writeHead(405).end("Method not allowed");
 }).listen(port, () => console.log(`Website Health Checker running at http://localhost:${port}`));
