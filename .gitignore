@@ -1,5 +1,6 @@
 node_modules/
-screenshots/
+screenshots/*
+!screenshots/627ec38f0cbc-desktop.png
 .env
 .env.*
 .DS_Store
